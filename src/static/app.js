@@ -7,7 +7,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
-      const response = await fetch("/activities");
+      const response = await fetch("/activities", {
+        cache: "no-cache"
+      });
       const activities = await response.json();
 
       // Clear loading message
@@ -30,7 +32,16 @@ document.addEventListener("DOMContentLoaded", () => {
             <p><strong>Current Participants:</strong></p>
             <ul class="participants-list">
               ${details.participants.length > 0 
-                ? details.participants.map(email => `<li>${email}</li>`).join('')
+                ? details.participants.map(email => `
+                    <li>
+                      <span class="participant-email">${email}</span>
+                      <button class="delete-btn" data-activity="${name}" data-email="${email}" title="Unregister participant">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                      </button>
+                    </li>
+                  `).join('')
                 : '<li class="no-participants">No participants yet</li>'
               }
             </ul>
@@ -45,9 +56,49 @@ document.addEventListener("DOMContentLoaded", () => {
         option.textContent = name;
         activitySelect.appendChild(option);
       });
+
+      // Add event listeners for delete buttons
+      document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', handleUnregister);
+      });
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
+    }
+  }
+
+  // Handle unregister participant
+  async function handleUnregister(event) {
+    const button = event.currentTarget;
+    const activity = button.dataset.activity;
+    const email = button.dataset.email;
+
+    if (!confirm(`Are you sure you want to unregister ${email} from ${activity}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Reload activities to show updated participants
+        fetchActivities();
+      } else {
+        alert(result.detail || "An error occurred while unregistering");
+      }
+    } catch (error) {
+      alert("Failed to unregister. Please try again.");
+      console.error("Error unregistering:", error);
     }
   }
 
